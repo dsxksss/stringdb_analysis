@@ -10,5 +10,6 @@ wheels/
 .venv
 
 # development
-*.log
+result/
 *cache.json
+db/

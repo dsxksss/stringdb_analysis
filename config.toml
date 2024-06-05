@@ -1,6 +1,0 @@
-Log_level = 10
-Log_console_level = 20
-Log_file_level = 30
-Log_file_save_path = "你好"
-Cache_file_save_path = "/var/cache/app.cache"
-Result_file_save_dir = "/var/results"

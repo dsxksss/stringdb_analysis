@@ -1,9 +1,14 @@
 [project]
-name = "py-script-template"
+name = "stringdb_analysis"
 version = "0.1.0"
 description = "Add your description here"
 authors = [{ name = "VentCat", email = "2546650292@qq.com" }]
-dependencies = ["tinydb>=4.8.0", "toml>=0.10.2", "pydantic>=2.7.2"]
+dependencies = [
+    "toml>=0.10.2",
+    "pydantic>=2.7.2",
+    "pandas>=2.2.2",
+    "pyarrow>=16.1.0",
+]
 readme = "README.md"
 requires-python = ">= 3.11"
 
@@ -15,7 +20,7 @@ build-backend = "hatchling.build"
 main = "py_script_template:main"
 
 [tool.rye.scripts]
-dev = "rye run main"
+dev = "rye run main --input './genes.txt' --save_dir './result'"
 
 [tool.rye]
 managed = true
