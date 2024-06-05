@@ -14,7 +14,10 @@ class Extractor:
         self._calculate_max_values()
 
         # 对外接口功能
-        # self.export_all_interactions()
+        if self.get_genes_correlation:
+            print("使用")
+            self.export_all_interactions()
+            
         self.export_string_interactions()
 
     def _load_args(self, cli_file_path: str):
@@ -23,6 +26,7 @@ class Extractor:
         self.db_dir = self.args["db_dir"]
         self.save_dir = self.args["save_dir"]
         self.cut_off = self.args["cut_off"]
+        self.get_genes_correlation = self.args["get_genes_correlation"]
         mkdir_if_not_exist(self.save_dir)
         print("Args loaded.")
 
@@ -294,10 +298,10 @@ class Extractor:
 
             if final_datas:
                 final_df = pd.DataFrame(final_datas)
-                final_df = final_df.sort_values(by="combined_score", ascending=False)
                 final_df = final_df[
                     final_df.combined_score.astype(float) >= float(self.cut_off)
                 ]
+                final_df = final_df.sort_values(by="combined_score", ascending=False)
                 save_path = os.path.join(self.save_dir, f"{gene}.tsv")
                 final_df.to_csv(
                     save_path,
@@ -407,6 +411,7 @@ class Extractor:
             (final_df.node1.isin(self.genes) & (final_df.node2.isin(self.genes)))
             & (final_df.combined_score.astype(float) >= float(self.cut_off))
         ]
+        final_df = final_df.sort_values(by="combined_score", ascending=False)
         final_df.to_csv(
             os.path.join(self.save_dir, "string_interactions.tsv"),
             index=False,

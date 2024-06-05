@@ -4,3 +4,4 @@ input_file = { required = true, help = "要查找的基因名称" }
 db_dir = { default = "./db", help = "指定数据库目录, 默认./" }
 save_dir = { default = "./", help = "指定导出的数据目录路径, 默认./" }
 cut_off = { default = 0.4, help = "截断值(0~1之间), 默认0.5(只导出combined_score为0.5以上的数据)" }
+get_genes_correlation = { default = false, help = "是否获取输入基因的其他关联数据, 默认false不获取 " }
