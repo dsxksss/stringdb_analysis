@@ -308,6 +308,12 @@ class Extractor:
 
 
 def main() -> int:
-    Extractor(cli_file_path="./cli_config.toml")
+    # 获取当前脚本的文件路径
+    script_path = __file__
+
+    # 获取当前脚本所在的目录
+    script_dir = os.path.dirname(script_path)
+
+    Extractor(cli_file_path=os.path.join(script_dir, "..", "..", "cli_config.toml"))
 
     return 0
