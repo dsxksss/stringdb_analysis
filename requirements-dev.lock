@@ -16,6 +16,8 @@ numpy==1.26.4
     # via pyarrow
 pandas==2.2.2
     # via stringdb-analysis
+polars==0.20.31
+    # via stringdb-analysis
 pyarrow==16.1.0
     # via stringdb-analysis
 pydantic==2.7.2

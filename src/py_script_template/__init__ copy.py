@@ -1,7 +1,7 @@
-from itertools import combinations
 import os
-import numpy as np
 import pandas as pd
+import numpy as np
+
 from py_script_template.cli import get_cli_argument
 from py_script_template.utils import mkdir_if_not_exist, read_single_csv
 
@@ -14,7 +14,10 @@ class Extractor:
         self._calculate_max_values()
 
         # 对外接口功能
-        self.export_all_interactions()
+        if self.get_genes_correlation:
+            print("使用")
+            self.export_all_interactions()
+
         self.export_string_interactions()
 
     def _load_args(self, cli_file_path: str):
@@ -23,6 +26,7 @@ class Extractor:
         self.db_dir = self.args["db_dir"]
         self.save_dir = self.args["save_dir"]
         self.cut_off = self.args["cut_off"]
+        self.get_genes_correlation = self.args["get_genes_correlation"]
         mkdir_if_not_exist(self.save_dir)
         print("Args loaded.")
 
@@ -211,8 +215,6 @@ class Extractor:
             ) as f:
                 for gene in not_found_genes:
                     f.write(f"{gene}\n")
-
-    def export_string_interactions(self):
         fieldnames = [
             "node1",
             "node2",
@@ -229,54 +231,41 @@ class Extractor:
             "combined_score",
         ]
 
-        not_match_genes = set()
-        genes_with_matches = set()
-        final_datas = []
+        not_found_genes = []
 
-        gene_pairs = list(combinations(self.genes, 2))
-
-        for gene1, gene2 in gene_pairs:
-            current_info_df1 = self.info_df[self.info_df.preferred_name == gene1]
-            current_info_df2 = self.info_df[self.info_df.preferred_name == gene2]
-
-            if current_info_df1.empty:
-                not_match_genes.add(gene1)
-                continue
-            if current_info_df2.empty:
-                not_match_genes.add(gene2)
+        for gene in self.genes:
+            current_info_df = self.info_df[self.info_df.preferred_name == gene]
+            if current_info_df.empty:
+                not_found_genes.append(gene)
                 continue
 
-            string_ids1 = current_info_df1["string_protein_id"].astype(str).values
-            string_ids2 = current_info_df2["string_protein_id"].astype(str).values
+            string_ids = current_info_df["string_protein_id"].astype(str).values
+            final_datas = []
 
-            pair_found = False
-            for string_id1 in string_ids1:
-                for string_id2 in string_ids2:
-                    link_info1 = self.links_df[
-                        (self.links_df.protein1 == string_id1)
-                        & (self.links_df.protein2 == string_id2)
-                    ]
-                    link_info2 = self.links_df[
-                        (self.links_df.protein1 == string_id2)
-                        & (self.links_df.protein2 == string_id1)
-                    ]
+            for string_id in string_ids:
+                current_links_df = self.links_df[
+                    self.links_df.protein1 == string_id
+                ].copy()
+                protein2_string_ids = current_links_df["protein2"].astype(str).values
 
-                    if not link_info1.empty:
-                        link_info = link_info1.iloc[0]
-                    elif not link_info2.empty:
-                        link_info = link_info2.iloc[0]
-                    else:
-                        continue
+                for p2_string_id in protein2_string_ids:
+                    protein2_info = self.info_df[
+                        self.info_df.string_protein_id == p2_string_id
+                    ].copy()
+                    if protein2_info.empty:
+                        continue  # Skip if protein2_info is empty
 
-                    pair_found = True
-                    genes_with_matches.add(gene1)
-                    genes_with_matches.add(gene2)
+                    node1 = gene
+                    node2 = protein2_info["preferred_name"].astype(str).values[0]
+                    link_info = current_links_df[
+                        current_links_df.protein2 == p2_string_id
+                    ].iloc[0]
 
                     row = {
-                        "node1": gene1,
-                        "node2": gene2,
-                        "node1_string_id": string_id1,
-                        "node2_string_id": string_id2,
+                        "node1": node1,
+                        "node2": node2,
+                        "node1_string_id": string_id,
+                        "node2_string_id": p2_string_id,
                         "neighborhood_on_chromosome": self.normalize(
                             link_info.neighborhood, self.max_values["neighborhood"]
                         ),
@@ -307,35 +296,148 @@ class Extractor:
                     }
                     final_datas.append(row)
 
-            if not pair_found:
-                not_match_genes.add(gene1)
-                not_match_genes.add(gene2)
+            if final_datas:
+                final_df = pd.DataFrame(final_datas)
+                final_df = final_df[
+                    final_df.combined_score.astype(float) >= float(self.cut_off)
+                ]
+                final_df = final_df.sort_values(by="combined_score", ascending=False)
+                save_path = os.path.join(self.save_dir, f"{gene}.tsv")
+                final_df.to_csv(
+                    save_path,
+                    index=False,
+                    columns=fieldnames,
+                    encoding="utf-8",
+                    sep="\t",
+                )
+                print(f"Gene [{gene}] data saved to: [{save_path}]")
 
-        if final_datas:
-            final_df = pd.DataFrame(final_datas)
-            final_df = final_df[
-                final_df.combined_score.astype(float) >= float(self.cut_off)
-            ]
-            final_df.to_csv(
-                os.path.join(self.save_dir, "string_interactions.tsv"),
-                index=False,
-                columns=fieldnames,
-                encoding="utf-8",
-                sep="\t",
-            )
+        if not_found_genes:
+            with open(
+                os.path.join(self.save_dir, "notfound_gene.txt"), "w", encoding="utf-8"
+            ) as f:
+                for gene in not_found_genes:
+                    f.write(f"{gene}\n")
 
-        # Remove genes with matches from the not_match_genes set
-        not_match_genes.difference_update(genes_with_matches)
+    def export_string_interactions(self):
+        fieldnames = [
+            "node1",
+            "node2",
+            "node1_string_id",
+            "node2_string_id",
+            "neighborhood_on_chromosome",
+            "gene_fusion",
+            "phylogenetic_cooccurrence",
+            "homology",
+            "coexpression",
+            "experimentally_determined_interaction",
+            "database_annotated",
+            "automated_textmining",
+            "combined_score",
+        ]
 
-        if not_match_genes:
+        valid_interactions = []
+        matched_genes = set()
+
+        for gene in self.genes:
+            current_info_df = self.info_df[self.info_df.preferred_name == gene]
+            if current_info_df.empty:
+                continue
+
+            string_ids = current_info_df["string_protein_id"].astype(str).values
+
+            for string_id in string_ids:
+                current_links_df = self.links_df[
+                    self.links_df.protein1 == string_id
+                ].copy()
+                protein2_string_ids = current_links_df["protein2"].astype(str).values
+
+                for p2_string_id in protein2_string_ids:
+                    protein2_info = self.info_df[
+                        self.info_df.string_protein_id == p2_string_id
+                    ].copy()
+                    if protein2_info.empty:
+                        continue
+
+                    node1 = gene
+                    node2 = protein2_info["preferred_name"].astype(str).values[0]
+
+                    if node2 not in self.genes:
+                        continue
+
+                    matched_genes.add(node1)
+                    matched_genes.add(node2)
+
+                    link_info = current_links_df[
+                        current_links_df.protein2 == p2_string_id
+                    ].iloc[0]
+                    row = {
+                        "node1": node1,
+                        "node2": node2,
+                        "node1_string_id": string_id,
+                        "node2_string_id": p2_string_id,
+                        "neighborhood_on_chromosome": self.normalize(
+                            link_info.neighborhood, self.max_values["neighborhood"]
+                        ),
+                        "gene_fusion": self.normalize(
+                            link_info.fusion, self.max_values["fusion"]
+                        ),
+                        "phylogenetic_cooccurrence": self.normalize(
+                            link_info.cooccurence, self.max_values["cooccurence"]
+                        ),
+                        "homology": self.normalize(
+                            link_info.homology, self.max_values["homology"]
+                        ),
+                        "coexpression": self.normalize(
+                            link_info.coexpression, self.max_values["coexpression"]
+                        ),
+                        "experimentally_determined_interaction": self.normalize(
+                            link_info.experiments, self.max_values["experiments"]
+                        ),
+                        "database_annotated": self.normalize(
+                            link_info.database, self.max_values["database"]
+                        ),
+                        "automated_textmining": self.normalize(
+                            link_info.textmining, self.max_values["textmining"]
+                        ),
+                        "combined_score": self.normalize(
+                            link_info.combined_score, self.max_values["combined_score"]
+                        ),
+                    }
+                    valid_interactions.append(row)
+
+        final_df = pd.DataFrame(valid_interactions)
+        final_df = final_df[
+            (final_df.node1.isin(self.genes) & (final_df.node2.isin(self.genes)))
+            & (final_df.combined_score.astype(float) >= float(self.cut_off))
+        ]
+        final_df = final_df.sort_values(by="combined_score", ascending=False)
+        final_df.to_csv(
+            os.path.join(self.save_dir, "string_interactions.tsv"),
+            index=False,
+            columns=fieldnames,
+            encoding="utf-8",
+            sep="\t",
+        )
+        print("String interactions saved to string_interactions.tsv")
+
+        # Determine the genes that were not matched
+        notmatch_genes = set(self.genes) - matched_genes
+
+        if notmatch_genes:
             with open(
                 os.path.join(self.save_dir, "notmatch_gene.txt"), "w", encoding="utf-8"
             ) as f:
-                for gene in not_match_genes:
+                for gene in notmatch_genes:
                     f.write(f"{gene}\n")
+            print("Not matched genes saved to notmatch_gene.txt")
 
 
 def main() -> int:
     Extractor(cli_file_path="./cli_config.toml")
 
     return 0
+
+
+if __name__ == "__main__":
+    main()

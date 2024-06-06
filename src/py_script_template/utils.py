@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import polars as pl
 import pandas as pd
 
 
@@ -10,29 +11,22 @@ def mkdir_if_not_exist(path: str) -> None:
 
 def read_single_csv(
     input_path: str, cache_save_path: str, sep: str, dtype: dict
-) -> pd.DataFrame:
-
+) -> pl.DataFrame:
     # Check if the cache file exists
     if os.path.exists(cache_save_path):
-        return pd.read_parquet(cache_save_path)
+        return pl.read_parquet(cache_save_path)
 
-    # Determine file size and set chunksize dynamically
-    file_size = os.path.getsize(input_path)
-    chunksize = calculate_chunksize(file_size)
+    # Read the CSV with pandas
+    df = pd.read_csv(input_path, sep=sep,dtype=dtype)
+    df.columns = df.columns.str.strip()  # Strip any extra whitespace from column names
 
-    # Read the CSV in chunks
-    df_chunk = pd.read_csv(
-        input_path, chunksize=chunksize, sep=sep, encoding="utf-8", dtype=dtype
-    )
-    res_chunk = []
-    for chunk in df_chunk:
-        res_chunk.append(chunk)
-    res_df = pd.concat(res_chunk)
+    # Convert to polars DataFrame
+    pl_df = pl.DataFrame(df)
 
     # Save to cache for future use
-    res_df.to_parquet(cache_save_path)
+    pl_df.write_parquet(cache_save_path)
 
-    return res_df
+    return pl_df
 
 
 def calculate_chunksize(file_size: int) -> int:

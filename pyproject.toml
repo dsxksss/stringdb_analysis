@@ -8,6 +8,7 @@ dependencies = [
     "pydantic>=2.7.2",
     "pandas>=2.2.2",
     "pyarrow>=16.1.0",
+    "polars>=0.20.31",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"
@@ -20,7 +21,7 @@ build-backend = "hatchling.build"
 main = "py_script_template:main"
 
 [tool.rye.scripts]
-dev = "rye run main --input './genes.txt' --save_dir './result'"
+dev = "rye run main --input './genes.txt' --save_dir './result' --get_genes_correlation 'true'"
 
 [tool.rye]
 managed = true
