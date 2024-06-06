@@ -112,24 +112,7 @@ class Extractor:
         return 0 if final_value == "0.000" else final_value
 
     def export_all_interactions(self):
-        fieldnames = [
-            "node1",
-            "node2",
-            "node1_string_id",
-            "node2_string_id",
-            "neighborhood_on_chromosome",
-            "gene_fusion",
-            "phylogenetic_cooccurrence",
-            "homology",
-            "coexpression",
-            "experimentally_determined_interaction",
-            "database_annotated",
-            "automated_textmining",
-            "combined_score",
-        ]
-
         not_found_genes = []
-
         for gene in self.genes:
             current_info_df = self.info_df.filter(pl.col("preferred_name") == gene)
             if current_info_df.is_empty():
@@ -210,22 +193,6 @@ class Extractor:
                     f.write(f"{gene}\n")
 
     def export_string_interactions(self):
-        fieldnames = [
-            "node1",
-            "node2",
-            "node1_string_id",
-            "node2_string_id",
-            "neighborhood_on_chromosome",
-            "gene_fusion",
-            "phylogenetic_cooccurrence",
-            "homology",
-            "coexpression",
-            "experimentally_determined_interaction",
-            "database_annotated",
-            "automated_textmining",
-            "combined_score",
-        ]
-
         valid_interactions = []
         matched_genes = set()
 
@@ -244,6 +211,7 @@ class Extractor:
                     protein2_info = self.info_df.filter(
                         pl.col("string_protein_id") == p2_string_id
                     )
+
                     if protein2_info.is_empty():
                         continue  # Skip if protein2_info is empty
 
@@ -301,9 +269,32 @@ class Extractor:
                 pl.col("combined_score").cast(pl.Float64) >= float(self.cut_off)
             )
             final_df = final_df.sort("combined_score", descending=True)
+
+            # 保存原始文件
             save_path = os.path.join(self.save_dir, "string_interactions.tsv")
             final_df.write_csv(save_path, separator="\t")
             print(f"String interactions data saved to: [{save_path}]")
+
+            # 创建简短版文件
+            unique_pairs = set()
+            short_interactions = []
+
+            for row in final_df.to_dicts():
+                node1 = row["node1"]
+                node2 = row["node2"]
+                if (node1, node2) not in unique_pairs and (
+                    node2,
+                    node1,
+                ) not in unique_pairs:
+                    unique_pairs.add((node1, node2))
+                    short_interactions.append(row)
+
+            short_df = pl.DataFrame(short_interactions)
+            short_save_path = os.path.join(
+                self.save_dir, "string_interactions_short.tsv"
+            )
+            short_df.write_csv(short_save_path, separator="\t")
+            print(f"Short string interactions data saved to: [{short_save_path}]")
 
         not_matched_genes = set(self.genes) - matched_genes
         if not_matched_genes:
@@ -320,7 +311,3 @@ def main() -> int:
     Extractor(cli_file_path="./cli_config.toml")
 
     return 0
-
-
-if __name__ == "__main__":
-    main()
