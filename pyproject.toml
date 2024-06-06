@@ -21,7 +21,7 @@ build-backend = "hatchling.build"
 main = "py_script_template:main"
 
 [tool.rye.scripts]
-dev = "rye run main --input './genes.txt' --save_dir './result' --get_genes_correlation 'true'"
+dev = "rye run main --input './genes2.txt' --save_dir './result'"
 
 [tool.rye]
 managed = true
