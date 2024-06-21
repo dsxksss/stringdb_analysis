@@ -62,11 +62,11 @@ def parse_timestamp(timestamp, custom_strfmt="%Y-%m-%d %H:%M:%S") -> str:
     return formatted
 
 
-def set_progress(value: int):
+def set_progress_value(value: int):
     if value < 0 or value > 100:
         raise ValueError(
-            "Progress must be between 0 and 100, but got [{value}].".format(value)
+            "ProgressValue must be between 0 and 100, but got [{value}].".format(value)
         )
 
     with open("./state.json", "w", encoding="utf-8") as f:
-        json.dump({"progress": value}, f)
+        json.dump({"ProgressValue": value}, f)

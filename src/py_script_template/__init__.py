@@ -4,27 +4,27 @@ import numpy as np
 import polars as pl
 
 from py_script_template.cli import get_cli_argument
-from py_script_template.utils import mkdir_if_not_exist, read_single_csv, set_progress
+from py_script_template.utils import mkdir_if_not_exist, read_single_csv, set_progress_value
 
 
 class Extractor:
     def __init__(self, cli_file_path: str):
         self._load_args(cli_file_path)
-        set_progress(6)
+        set_progress_value(6)
         self._load_db_datas()
         self._load_input_file()
-        set_progress(25)
+        set_progress_value(25)
         self._calculate_max_values()
-        set_progress(60)
+        set_progress_value(60)
 
         # 对外接口功能
         if self.get_genes_correlation.lower() == "yes":
             print("Use --genes_correlation command to extract all interactions genes")
             self.export_all_interactions()
-            set_progress(80)
+            set_progress_value(80)
 
         self.export_string_interactions()
-        set_progress(100)
+        set_progress_value(100)
 
     def _load_args(self, cli_file_path: str):
         self.args = get_cli_argument(cli_file_path)
