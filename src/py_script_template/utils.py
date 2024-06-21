@@ -68,5 +68,5 @@ def set_progress(value: int):
             "Progress must be between 0 and 100, but got [{value}].".format(value)
         )
 
-    with open("./status.json", "w", encoding="utf-8") as f:
+    with open("./state.json", "w", encoding="utf-8") as f:
         json.dump({"progress": value}, f)
