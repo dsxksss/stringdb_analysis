@@ -4,7 +4,11 @@ import numpy as np
 import polars as pl
 
 from py_script_template.cli import get_cli_argument
-from py_script_template.utils import mkdir_if_not_exist, read_single_csv, set_progress_value
+from py_script_template.utils import (
+    mkdir_if_not_exist,
+    read_single_csv,
+    set_progress_value,
+)
 
 
 class Extractor:
@@ -20,8 +24,9 @@ class Extractor:
         # 对外接口功能
         if self.get_genes_correlation.lower() == "yes":
             print("Use --genes_correlation command to extract all interactions genes")
-            self.export_all_interactions()
-            set_progress_value(80)
+            self.export_string_interactions(self.export_all_interactions())
+            set_progress_value(100)
+            return
 
         self.export_string_interactions()
         set_progress_value(100)
@@ -124,6 +129,7 @@ class Extractor:
 
     def export_all_interactions(self):
         not_found_genes = []
+        final_datas = []
         for gene in self.genes:
             current_info_df = self.info_df.filter(pl.col("preferred_name") == gene)
             if current_info_df.is_empty():
@@ -131,7 +137,6 @@ class Extractor:
                 continue
 
             string_ids = current_info_df["string_protein_id"].to_list()
-            final_datas = []
 
             for string_id in string_ids:
                 current_links_df = self.links_df.filter(pl.col("protein1") == string_id)
@@ -186,16 +191,6 @@ class Extractor:
                     }
                     final_datas.append(row)
 
-            if final_datas:
-                final_df = pl.DataFrame(final_datas)
-                final_df = final_df.filter(
-                    pl.col("combined_score").cast(pl.Float64) >= float(self.cut_off)
-                )
-                final_df = final_df.sort("combined_score", descending=True)
-                save_path = os.path.join(self.save_dir, f"{gene}.tsv")
-                final_df.write_csv(file=save_path, separator="\t")
-                print(f"Gene [{gene}] data saved to: [{save_path}]")
-
         if not_found_genes:
             with open(
                 os.path.join(self.save_dir, "notfound_gene.txt"), "w", encoding="utf-8"
@@ -203,7 +198,9 @@ class Extractor:
                 for gene in not_found_genes:
                     f.write(f"{gene}\n")
 
-    def export_string_interactions(self):
+        return final_datas
+
+    def export_string_interactions(self, other_interactions: list | None = None):
         valid_interactions = []
         matched_genes = set()
 
@@ -275,6 +272,9 @@ class Extractor:
                         matched_genes.update([node1, node2])
 
         if valid_interactions:
+            if other_interactions:
+                valid_interactions.extend(other_interactions)
+
             final_df = pl.DataFrame(valid_interactions)
             final_df = final_df.filter(
                 pl.col("combined_score").cast(pl.Float64) >= float(self.cut_off)
