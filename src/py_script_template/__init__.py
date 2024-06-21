@@ -1,24 +1,30 @@
 import os
+import sys
 import numpy as np
 import polars as pl
 
 from py_script_template.cli import get_cli_argument
-from py_script_template.utils import mkdir_if_not_exist, read_single_csv
+from py_script_template.utils import mkdir_if_not_exist, read_single_csv, set_progress
 
 
 class Extractor:
     def __init__(self, cli_file_path: str):
         self._load_args(cli_file_path)
+        set_progress(6)
         self._load_db_datas()
         self._load_input_file()
+        set_progress(25)
         self._calculate_max_values()
+        set_progress(60)
 
         # 对外接口功能
-        if self.get_genes_correlation:
+        if self.get_genes_correlation.lower() == "yes":
             print("Use --genes_correlation command to extract all interactions genes")
             self.export_all_interactions()
+            set_progress(80)
 
         self.export_string_interactions()
+        set_progress(100)
 
     def _load_args(self, cli_file_path: str):
         self.args = get_cli_argument(cli_file_path)
@@ -26,6 +32,8 @@ class Extractor:
         self.db_dir = self.args["db_dir"]
         self.save_dir = self.args["save_dir"]
         self.cut_off = self.args["cut_off"]
+        if not (0.0 <= self.cut_off <= 1.0):
+            raise ValueError("cutoff must be between 0.0 and 1.0")
         self.get_genes_correlation = self.args["get_genes_correlation"]
         mkdir_if_not_exist(self.save_dir)
         print("Args loaded.")
@@ -81,6 +89,9 @@ class Extractor:
         print(f"[{self.db_dir}/9606.protein.links.full.v12.0.txt] loaded")
 
     def _load_input_file(self):
+        if not os.path.exists(self.input_file):
+            raise FileExistsError(f"File [{self.input_file}] is not exists!")
+
         with open(self.input_file, "r", encoding="utf-8") as r:
             self.genes = [line.strip("\n") for line in r.readlines()]
         print(
@@ -271,9 +282,9 @@ class Extractor:
             final_df = final_df.sort("combined_score", descending=True)
 
             # 保存原始文件
-            save_path = os.path.join(self.save_dir, "string_interactions.tsv")
+            save_path = os.path.join(self.save_dir, "string_interactions_full.tsv")
             final_df.write_csv(save_path, separator="\t")
-            print(f"String interactions data saved to: [{save_path}]")
+            print(f"String interactions full data saved to: [{save_path}]")
 
             # 创建简短版文件
             unique_pairs = set()
@@ -290,11 +301,9 @@ class Extractor:
                     short_interactions.append(row)
 
             short_df = pl.DataFrame(short_interactions)
-            short_save_path = os.path.join(
-                self.save_dir, "string_interactions_short.tsv"
-            )
+            short_save_path = os.path.join(self.save_dir, "string_interactions.tsv")
             short_df.write_csv(short_save_path, separator="\t")
-            print(f"Short string interactions data saved to: [{short_save_path}]")
+            print(f"String interactions data saved to: [{short_save_path}]")
 
         not_matched_genes = set(self.genes) - matched_genes
         if not_matched_genes:
@@ -308,12 +317,15 @@ class Extractor:
 
 
 def main() -> int:
-    # 获取当前脚本的文件路径
-    script_path = __file__
+    try:
+        # 获取当前脚本的文件路径
+        script_path = __file__
 
-    # 获取当前脚本所在的目录
-    script_dir = os.path.dirname(script_path)
+        # 获取当前脚本所在的目录
+        script_dir = os.path.dirname(script_path)
 
-    Extractor(cli_file_path=os.path.join(script_dir, "..", "..", "cli_config.toml"))
-
+        Extractor(cli_file_path=os.path.join(script_dir, "..", "..", "cli_config.toml"))
+    except Exception as e:
+        sys.stderr.write(f"{e}\n")
+        return 100
     return 0

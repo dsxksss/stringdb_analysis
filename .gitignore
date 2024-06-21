@@ -13,3 +13,4 @@ wheels/
 result/
 *cache.json
 db/
+status.json

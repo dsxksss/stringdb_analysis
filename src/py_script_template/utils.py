@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 import polars as pl
@@ -17,7 +18,7 @@ def read_single_csv(
         return pl.read_parquet(cache_save_path)
 
     # Read the CSV with pandas
-    df = pd.read_csv(input_path, sep=sep,dtype=dtype)
+    df = pd.read_csv(input_path, sep=sep, dtype=dtype)
     df.columns = df.columns.str.strip()  # Strip any extra whitespace from column names
 
     # Convert to polars DataFrame
@@ -59,3 +60,13 @@ def parse_timestamp(timestamp, custom_strfmt="%Y-%m-%d %H:%M:%S") -> str:
     formatted = dt.strftime(custom_strfmt)
 
     return formatted
+
+
+def set_progress(value: int):
+    if value < 0 or value > 100:
+        raise ValueError(
+            "Progress must be between 0 and 100, but got [{value}].".format(value)
+        )
+
+    with open("./status.json", "w", encoding="utf-8") as f:
+        json.dump({"progress": value}, f)
